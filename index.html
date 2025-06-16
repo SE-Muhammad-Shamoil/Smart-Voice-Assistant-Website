@@ -1,1 +1,217 @@
-In Production
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Voice Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #1e1e2f, #25263a);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 600;
+      color: #00d1b2;
+    }
+    p.description {
+      font-size: 1rem;
+      color: #ccc;
+    }
+    .card {
+      background: #2c2f4a;
+      border-radius: 16px;
+      padding: 2rem;
+      max-width: 700px;
+      width: 100%;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    #response {
+      background: #1f2133;
+      border-radius: 12px;
+      padding: 1.2rem;
+      min-height: 120px;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+      color: #e3e3e3;
+      transition: all 0.3s ease-in-out;
+    }
+    #status {
+      font-style: italic;
+      font-size: 0.95rem;
+      color: #aaa;
+      margin-top: 0.5rem;
+    }
+    #micBtn {
+      background: #00d1b2;
+      border: none;
+      border-radius: 50px;
+      padding: 0.9rem 2rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s;
+    }
+    #micBtn:hover {
+      background: #00b89c;
+      transform: scale(1.05);
+    }
+    #micBtn.listening {
+      background: #ff5252;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7); }
+      70% { box-shadow: 0 0 0 15px rgba(255, 82, 82, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); }
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .controls button.toggle {
+      background: #3a3d5c;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .controls button.toggle:hover {
+      background: #50546f;
+    }
+    footer {
+      margin-top: 3rem;
+      font-size: 0.85rem;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Smart Voice Assistant</h1>
+    <p class="description">Talk to your personal AI assistant — voice in, voice out.</p>
+  </header>
+
+  <div class="card">
+    <div id="response">Click the mic and start speaking...</div>
+    <div id="status">Idle</div>
+    <div class="controls">
+      <button id="micBtn">🎤 Start Talking</button>
+      <button class="toggle" id="toggleListen">🔇 Mute</button>
+    </div>
+  </div>
+
+  <footer>
+    Smart Assistant Project &copy; 2025 — Developed for SDA Coursework
+  </footer>
+
+  <script>
+    const micBtn = document.getElementById('micBtn');
+    const toggleBtn = document.getElementById('toggleListen');
+    const responseDiv = document.getElementById('response');
+    const statusDiv = document.getElementById('status');
+
+    let isListening = false;
+    let muted = false;
+
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    const synth = window.speechSynthesis;
+
+    function speak(text) {
+      if (muted) return;
+      const utterance = new SpeechSynthesisUtterance(text);
+      synth.speak(utterance);
+    }
+
+    async function askAI(message) {
+      statusDiv.textContent = 'Thinking...';
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer sk-REPLACE-WITH-YOUR-KEY',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'mistralai/mistral-7b-instruct',
+            messages: [
+              { role: 'system', content: 'You are a friendly AI voice assistant.' },
+              { role: 'user', content: message }
+            ]
+          })
+        });
+
+        const data = await response.json();
+        const aiReply = data.choices?.[0]?.message?.content || "Sorry, I didn't understand that.";
+        responseDiv.textContent = aiReply;
+        speak(aiReply);
+        statusDiv.textContent = 'Answered';
+      } catch (err) {
+        responseDiv.textContent = 'Error connecting to AI service';
+        statusDiv.textContent = 'Error';
+        console.error(err);
+      }
+    }
+
+    recognition.onstart = () => {
+      micBtn.textContent = '🎙️ Listening...';
+      micBtn.classList.add('listening');
+      statusDiv.textContent = 'Listening...';
+    };
+
+    recognition.onend = () => {
+      micBtn.textContent = '🎤 Start Talking';
+      micBtn.classList.remove('listening');
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      responseDiv.textContent = `You said: ${transcript}`;
+      askAI(transcript);
+    };
+
+    micBtn.addEventListener('click', () => {
+      if (!isListening) {
+        recognition.start();
+        isListening = true;
+      } else {
+        recognition.stop();
+        isListening = false;
+      }
+    });
+
+    toggleBtn.addEventListener('click', () => {
+      muted = !muted;
+      toggleBtn.textContent = muted ? '🔈 Unmute' : '🔇 Mute';
+    });
+  </script>
+</body>
+</html>
